@@ -7,30 +7,53 @@ import android.content.pm.PackageManager
 import android.location.Location
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import androidx.core.app.ActivityCompat
 import com.example.keisoku.databinding.ActivityMainBinding
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.*
 
 class MainActivity : AppCompatActivity() {
+
     private lateinit var binding: ActivityMainBinding
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    //  com.google.android.gms.location.LocationCallback
+    private lateinit var locationCallback: LocationCallback
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         setContentView(binding.root)
-        //setContentView(R.layout.activity_main)
 
         binding.buttonKeisoku.setOnClickListener { onButtonKeisokuTapped(it) }
+
+        initLocationCallback()
     }
 
-    fun onButtonKeisokuTapped(view: View?){
-        Log.d("xxx","1")
 
+    private fun initLocationCallback(){
+        //  com.google.android.gms.location.LocationCallback
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(p0: LocationResult) {
+                p0 ?: return
+                for (location in p0.locations){
+                    binding.textViewResult2.text = "[CallBackLocation]緯度:" + location?.latitude + "/経度:" + location?.longitude
+                }
+            }
+        }
+    }
+
+    // requestLocationUpdates
+    override fun onResume() {
+        super.onResume()
+        startLocationUpdates()
+    }
+
+    // requestLocationUpdates
+    private fun startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(
                 this,
                 Manifest.permission.ACCESS_FINE_LOCATION
@@ -39,23 +62,54 @@ class MainActivity : AppCompatActivity() {
                 Manifest.permission.ACCESS_COARSE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            Log.d("xxx","2")
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
             return
         }
-        Log.d("xxx","3")
+
+        val locationRequest = LocationRequest.create()?.apply {
+            interval = 10000
+            fastestInterval = 5000
+            priority = Priority.PRIORITY_HIGH_ACCURACY
+        }
+
+        if (locationRequest != null) {
+            fusedLocationClient.requestLocationUpdates(locationRequest,
+                locationCallback,
+                Looper.getMainLooper())
+        }
+    }
+
+    // removeLocationUpdate
+    override fun onPause() {
+        super.onPause()
+        stopLocationUpdates()
+    }
+
+    // removeLocationUpdates
+    private fun stopLocationUpdates() {
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+    }
+
+    // ---- //
+    fun onButtonKeisokuTapped(view: View?){
+        setLastLocation()
+    }
+
+    private fun setLastLocation(){
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
 
         fusedLocationClient.lastLocation
             .addOnSuccessListener{ location : Location? ->
-                Log.d("xxx","4")
-                binding.textViewResult1.text = "緯度:" + location?.latitude + "/経度:" + location?.longitude
-        }
-
+                binding.textViewResult1.text = "[LastLocation]緯度:" + location?.latitude + "/経度:" + location?.longitude
+            }
     }
+
 }
